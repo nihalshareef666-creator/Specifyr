@@ -1,76 +1,109 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class ProductsService {
+export class ProductsService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
-  // Get product by barcode
+  //Seed data when app starts (optional but useful)
+  async onModuleInit() {
+    const count = await this.prisma.product.count();
+
+    if (count === 0) {
+      await this.prisma.product.createMany({
+        data: [
+          {
+            name: 'Havells Switch',
+            price: 140.5,
+            rating: 4.5,
+            barcode: '111111',
+            category: 'switch',
+            brand: 'Havells',
+          },
+          {
+            name: 'Anchor Switch',
+            price: 120.0,
+            rating: 4.2,
+            barcode: '222222',
+            category: 'switch',
+            brand: 'Anchor',
+          },
+          {
+            name: 'GM Modular Switch',
+            price: 160.0,
+            rating: 4.7,
+            barcode: '333333',
+            category: 'switch',
+            brand: 'GM',
+          },
+          {
+            name: 'Philips LED Bulb',
+            price: 80.0,
+            rating: 4.4,
+            barcode: '444444',
+            category: 'lighting',
+            brand: 'Philips',
+          },
+          {
+            name: 'Syska LED Bulb',
+            price: 70.0,
+            rating: 4.1,
+            barcode: '555555',
+            category: 'lighting',
+            brand: 'Syska',
+          },
+        ],
+      });
+
+      console.log('Seed data inserted');
+    }
+  }
+
+  //Get product by barcode
   async getProductByBarcode(barcode: string) {
-    return this.prisma.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { barcode },
     });
+
+    if (!product) return null;
+
+    return {
+      ...product,
+      price: product.price.toNumber(), // fix Decimal
+    };
   }
 
-  // Get similar products (same category, excluding current)
-  async getSimilarProducts(category: string, excludeBarcode: string) {
-    return this.prisma.product.findMany({
+  //Get similar (compare) products
+  async getCompareProducts(barcode: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { barcode },
+    });
+
+    if (!product) return [];
+
+    const products = await this.prisma.product.findMany({
       where: {
-        category: category,
+        category: product.category,
         NOT: {
-          barcode: excludeBarcode,
+          barcode: barcode,
         },
       },
-      take: 5, // limit results
+      take: 5,
     });
+
+    return products.map((p) => ({
+      ...p,
+      price: p.price.toNumber(), //fix Decimal
+    }));
   }
 
-  // Get all products (optional)
+  //Get all products
   async getAllProducts() {
-    return this.prisma.product.findMany();
-  }
+    const products = await this.prisma.product.findMany();
 
-  // Seed multiple products (for testing)
-  async seedMultiple() {
-    return this.prisma.product.createMany({
-      data: [
-        {
-          name: 'Havells Switch',
-          price: 140,
-          rating: 4.5,
-          barcode: '123456',
-          category: 'switch',
-        },
-        {
-          name: 'Anchor Switch',
-          price: 120,
-          rating: 4.2,
-          barcode: '123457',
-          category: 'switch',
-        },
-        {
-          name: 'GM Modular Switch',
-          price: 160,
-          rating: 4.7,
-          barcode: '123458',
-          category: 'switch',
-        },
-        {
-          name: 'Philips LED Bulb',
-          price: 200,
-          rating: 4.6,
-          barcode: '223456',
-          category: 'lighting',
-        },
-        {
-          name: 'Syska LED Bulb',
-          price: 180,
-          rating: 4.3,
-          barcode: '223457',
-          category: 'lighting',
-        },
-      ],
-      skipDuplicates: true, // avoids crash if already inserted
-    });
+    return products.map((p) => ({
+      ...p,
+      price: p.price.toNumber(), //fix Decimal
+    }));
   }
 }

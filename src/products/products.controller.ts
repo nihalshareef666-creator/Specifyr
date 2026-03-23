@@ -5,7 +5,7 @@ import { ProductsService } from './products.service';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  // Get product by barcode
+  // GET /products/barcode/:barcode
   @Get('barcode/:barcode')
   async getProduct(@Param('barcode') barcode: string) {
     const product = await this.productsService.getProductByBarcode(barcode);
@@ -23,52 +23,26 @@ export class ProductsController {
     };
   }
 
-  // Get similar products (based on category)
+  // GET /products/compare/:barcode
   @Get('compare/:barcode')
-  async getSimilar(@Param('barcode') barcode: string) {
-    const product = await this.productsService.getProductByBarcode(barcode);
-
-    if (!product) {
-      return {
-        success: false,
-        message: 'Product not found',
-      };
-    }
-
-    const similarProducts = await this.productsService.getSimilarProducts(
-      product.category,
-      barcode,
-    );
+  async compareProducts(@Param('barcode') barcode: string) {
+    const products =
+      await this.productsService.getCompareProducts(barcode);
 
     return {
       success: true,
-      data: {
-        product,
-        similarProducts,
-      },
+      data: products,
     };
   }
 
-  // Get all products
+  //GET /products (optional)
   @Get()
   async getAll() {
     const products = await this.productsService.getAllProducts();
 
     return {
       success: true,
-      count: products.length,
       data: products,
-    };
-  }
-
-  // Seed multiple products (temporary route)
-  @Get('seed-all')
-  async seedAll() {
-    await this.productsService.seedMultiple();
-
-    return {
-      success: true,
-      message: 'Products seeded successfully',
     };
   }
 }

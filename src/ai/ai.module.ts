@@ -4,7 +4,7 @@ import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 
 @Module({
-  imports: [ProductsModule], // REQUIRED
+  imports: [ProductsModule], 
   controllers: [AiController],
   providers: [AiService],
 })

@@ -8,10 +8,11 @@ datasource db {
 }
 
 model Product {
-  id       Int     @id @default(autoincrement())
+  id       Int      @id @default(autoincrement())
   name     String
-  barcode  String  @unique
-  price    Float
+  barcode  String   @unique
+  price    Decimal  
   rating   Float
   category String
+  brand    String   
 }

@@ -1,71 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import axios from 'axios';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class AiService {
+  constructor(private productsService: ProductsService) {}
 
-  async recommend(products: any[]) {
-    try {
-      console.log("Products received:", products);
+  async recommendFromMultiple(barcodes: string[]) {
+    const products: any[] = [];
 
-      const prompt = `
-You are an expert in electrical and plumbing products.
+    //Fetch products from DB
+    for (const barcode of barcodes) {
+      const product =
+        await this.productsService.getProductByBarcode(barcode);
 
-From the given list, select ONLY ONE best product.
-
-Return response in STRICT JSON format like this:
-{
-  "bestProduct": "product name",
-  "reason": "short reason",
-  "summary": "3-4 sentence explanation"
-}
-
-Do not return anything else.
-
-Products:
-${JSON.stringify(products)}
-`;
-
-      const response = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          model: 'openai/gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert in electrical and plumbing products.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ]
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log("AI response:", response.data);
-
-      const aiText = response.data.choices[0].message.content;
-
-try {
-  return JSON.parse(aiText);
-} catch {
-  return {
-    bestProduct: "Unknown",
-    reason: "AI response parsing failed",
-    summary: aiText
-  };
-}
-
-    } catch (error) {
-      console.error("FULL ERROR:", error.response?.data || error.message);
-      throw error;
+      if (product) {
+        products.push(product);
+      }
     }
+
+    //No valid products
+    if (products.length === 0) {
+      return {
+        success: false,
+        message: 'No valid products found',
+      };
+    }
+
+    //Sort by rating (highest first)
+    const best = products.sort((a, b) => b.rating - a.rating)[0];
+
+    //Final response
+    return {
+      bestProduct: best.name,
+      reason: 'Highest rating among selected products',
+      summary: `${best.name} has the highest rating of ${best.rating}, making it the best choice among the selected products.`,
+    };
   }
 }

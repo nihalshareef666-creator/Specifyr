@@ -8,8 +8,9 @@ import { ProductsModule } from './products/products.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    AiModule,          // ADD THIS
-    ProductsModule,    // ADD THIS (if used)
+    AiModule,         
+    ProductsModule,   
+    ProductsModule,
   ],
 })
 export class AppModule {}
