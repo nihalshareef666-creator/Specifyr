@@ -7,12 +7,23 @@ datasource db {
   url      = env("DATABASE_URL") 
 }
 
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  name         String?
+  phone        String?
+  profilePhoto String?
+  createdAt    DateTime @default(now())
+}
+
 model Product {
-  id       Int      @id @default(autoincrement())
-  name     String
-  barcode  String   @unique
-  price    Decimal  
-  rating   Float
-  category String
-  brand    String   
+  id             Int      @id @default(autoincrement())
+  name           String
+  barcode        String   @unique
+  category       String
+  brand          String   
+  imageUrl       String?
+  specifications Json?    // Use Json for technical specs map
+  createdAt      DateTime @default(now())
 }

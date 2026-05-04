@@ -1,11 +1,14 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class ProductsService implements OnModuleInit {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private aiService: AiService
+  ) {}
 
-  //Seed data when app starts (optional but useful)
   async onModuleInit() {
     const count = await this.prisma.product.count();
 
@@ -13,97 +16,113 @@ export class ProductsService implements OnModuleInit {
       await this.prisma.product.createMany({
         data: [
           {
-            name: 'Havells Switch',
-            price: 140.5,
-            rating: 4.5,
+            name: 'Havells Modular Switch',
             barcode: '111111',
-            category: 'switch',
+            category: 'Electrical',
             brand: 'Havells',
+            imageUrl: 'https://picsum.photos/id/1/400/300',
+            specifications: { "Voltage": "240V", "Material": "Polycarbonate" }
           },
           {
-            name: 'Anchor Switch',
-            price: 120.0,
-            rating: 4.2,
+            name: 'Anchor Penta Switch',
             barcode: '222222',
-            category: 'switch',
+            category: 'Electrical',
             brand: 'Anchor',
+            imageUrl: 'https://picsum.photos/id/2/400/300',
+            specifications: { "Voltage": "220V", "Type": "1-Way" }
           },
           {
-            name: 'GM Modular Switch',
-            price: 160.0,
-            rating: 4.7,
-            barcode: '333333',
-            category: 'switch',
-            brand: 'GM',
-          },
-          {
-            name: 'Philips LED Bulb',
-            price: 80.0,
-            rating: 4.4,
+            name: 'Philips LED 9W',
             barcode: '444444',
-            category: 'lighting',
+            category: 'Lighting',
             brand: 'Philips',
-          },
-          {
-            name: 'Syska LED Bulb',
-            price: 70.0,
-            rating: 4.1,
-            barcode: '555555',
-            category: 'lighting',
-            brand: 'Syska',
+            imageUrl: 'https://picsum.photos/id/3/400/300',
+            specifications: { "Lumens": "900lm", "Life": "15000 hrs" }
           },
         ],
       });
-
-      console.log('Seed data inserted');
+      console.log('Technical Seed data inserted');
+    } else {
+      // Temporary: Update existing products that don't have images to use placeholders
+      const productsWithoutImages = await this.prisma.product.findMany({
+        where: { OR: [{ imageUrl: null }, { imageUrl: '' }] }
+      });
+      
+      if (productsWithoutImages.length > 0) {
+        console.log(`Updating ${productsWithoutImages.length} products with placeholder images...`);
+        for (const [index, p] of productsWithoutImages.entries()) {
+          await this.prisma.product.update({
+            where: { id: p.id },
+            data: { imageUrl: `https://picsum.photos/id/${(index % 50) + 10}/400/300` }
+          });
+        }
+      }
     }
   }
 
-  //Get product by barcode
   async getProductByBarcode(barcode: string) {
-    const product = await this.prisma.product.findUnique({
+    return this.prisma.product.findUnique({
       where: { barcode },
     });
-
-    if (!product) return null;
-
-    return {
-      ...product,
-      price: product.price.toNumber(), // fix Decimal
-    };
   }
 
-  //Get similar (compare) products
-  async getCompareProducts(barcode: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { barcode },
-    });
-
-    if (!product) return [];
-
-    const products = await this.prisma.product.findMany({
-      where: {
-        category: product.category,
-        NOT: {
-          barcode: barcode,
-        },
-      },
-      take: 5,
-    });
-
-    return products.map((p) => ({
-      ...p,
-      price: p.price.toNumber(), //fix Decimal
-    }));
-  }
-
-  //Get all products
   async getAllProducts() {
-    const products = await this.prisma.product.findMany();
-
-    return products.map((p) => ({
-      ...p,
-      price: p.price.toNumber(), //fix Decimal
-    }));
+    return this.prisma.product.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
   }
-}
+
+  async searchProducts(query: string) {
+    return this.prisma.product.findMany({
+      where: {
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { brand: { contains: query, mode: 'insensitive' } },
+          { category: { contains: query, mode: 'insensitive' } },
+          { barcode: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      take: 20,
+    });
+  }
+
+  async createProduct(data: any) {
+    let finalSpecs = data.specifications;
+
+    // Smart Extraction: If specifications is a string (OCR paragraph), use AI to clean it
+    if (typeof data.specifications === 'string' && data.specifications.length > 5) {
+      console.log('AI extracting specs for category:', data.category);
+      finalSpecs = await this.aiService.extractSpecs(data.category, data.specifications);
+    }
+
+    return this.prisma.product.create({
+      data: {
+        name: data.name,
+        barcode: data.barcode,
+        brand: data.brand,
+        category: data.category,
+        imageUrl: data.imageUrl,
+        specifications: finalSpecs,
+      },
+    });
+  }
+
+  async updateProduct(barcode: string, data: any) {
+    return this.prisma.product.update({
+      where: { barcode },
+      data: {
+        name: data.name,
+        brand: data.brand,
+        category: data.category,
+        imageUrl: data.imageUrl,
+        specifications: data.specifications,
+      },
+    });
+  }
+
+  async deleteProduct(barcode: string) {
+    return this.prisma.product.delete({
+      where: { barcode },
+    });
+  }
+}
